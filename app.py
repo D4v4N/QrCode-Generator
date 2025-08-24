@@ -1,7 +1,6 @@
 from __future__ import annotations
 import os
 import sys
-import io
 import argparse
 from typing import Literal, Optional
 
@@ -111,7 +110,114 @@ def run_gui():
     app.title("QR Tool – PNG/SVG")
     app.geometry("640x420")
 
-    # ... (GUI code unchanged for brevity) ...
+    # State
+    data_var = tk.StringVar()
+    outfmt_var = tk.StringVar(value="png")
+    err_var = tk.StringVar(value="M")
+    svg_method_var = tk.StringVar(value="path")
+    box_size_var = tk.IntVar(value=10)
+    border_var = tk.IntVar(value=4)
+    outpath_var = tk.StringVar(value=os.path.join(os.getcwd(), "qr_output.png"))
+
+    # Layout
+    frm = ttk.Frame(app, padding=12)
+    frm.pack(fill=tk.BOTH, expand=True)
+
+    ttk.Label(frm, text="Data / URL to encode:").grid(row=0, column=0, sticky="w")
+    txt = tk.Text(frm, height=6, wrap="word")
+    txt.grid(row=1, column=0, columnspan=3, sticky="nsew", pady=(4, 10))
+    frm.rowconfigure(1, weight=1)
+    frm.columnconfigure(1, weight=1)
+
+    # Options
+    optf = ttk.LabelFrame(frm, text="Options")
+    optf.grid(row=2, column=0, columnspan=3, sticky="ew", pady=6)
+
+    ttk.Label(optf, text="Format:").grid(row=0, column=0, sticky="w", padx=(8, 4), pady=4)
+    ttk.Radiobutton(optf, text="PNG", variable=outfmt_var, value="png").grid(row=0, column=1, sticky="w")
+    ttk.Radiobutton(optf, text="SVG", variable=outfmt_var, value="svg").grid(row=0, column=2, sticky="w")
+
+    ttk.Label(optf, text="Error level:").grid(row=0, column=3, sticky="e", padx=(16, 4))
+    ttk.Combobox(optf, textvariable=err_var, values=["L", "M", "Q", "H"], width=4, state="readonly").grid(row=0, column=4, sticky="w")
+
+    ttk.Label(optf, text="Box size:").grid(row=1, column=0, sticky="e", padx=(8, 4))
+    ttk.Spinbox(optf, from_=1, to=50, textvariable=box_size_var, width=6).grid(row=1, column=1, sticky="w")
+
+    ttk.Label(optf, text="Border:").grid(row=1, column=2, sticky="e", padx=(8, 4))
+    ttk.Spinbox(optf, from_=0, to=20, textvariable=border_var, width=6).grid(row=1, column=3, sticky="w")
+
+    ttk.Label(optf, text="SVG method:").grid(row=1, column=4, sticky="e", padx=(16, 4))
+    ttk.Combobox(optf, textvariable=svg_method_var, values=["path", "basic", "fragment"], width=10, state="readonly").grid(row=1, column=5, sticky="w")
+
+    # Output
+    outfrm = ttk.Frame(frm)
+    outfrm.grid(row=3, column=0, columnspan=3, sticky="ew", pady=6)
+    ttk.Label(outfrm, text="Save as:").pack(side=tk.LEFT)
+    out_entry = ttk.Entry(outfrm, textvariable=outpath_var)
+    out_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=6)
+
+    def browse():
+        fmt = outfmt_var.get()
+        defext = ".png" if fmt == "png" else ".svg"
+        filetypes = [("PNG Image", "*.png")] if fmt == "png" else [("SVG Image", "*.svg")]
+        path = filedialog.asksaveasfilename(defaultextension=defext, filetypes=filetypes)
+        if path:
+            outpath_var.set(path)
+
+    ttk.Button(outfrm, text="Browse…", command=browse).pack(side=tk.LEFT)
+
+    # Preview (PNG only)
+    preview_lbl = ttk.Label(frm, text="(PNG preview appears here after Generate)")
+    preview_lbl.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(8, 0))
+
+    def generate():
+        data = txt.get("1.0", "end").strip()
+        if not data:
+            messagebox.showerror("Error", "Please enter data/URL to encode.")
+            return
+
+        try:
+            gen = QRCodeGenerator(error_level=err_var.get(), box_size=box_size_var.get(), border=border_var.get())
+            fmt: OutFormat = outfmt_var.get()  # type: ignore
+            if fmt == "png":
+                if not _PIL_AVAILABLE:
+                    messagebox.showerror("Dependency missing", "Pillow is required for PNG. Install with:\n\npip install pillow")
+                    return
+                img = gen.make_png(data)
+            else:
+                img = gen.make_svg(data, method=svg_method_var.get())  # type: ignore
+
+            out_path = outpath_var.get()
+            # Enforce extension based on chosen format
+            base, ext = os.path.splitext(out_path)
+            if fmt == "png" and ext.lower() != ".png":
+                out_path = base + ".png"
+                outpath_var.set(out_path)
+            if fmt == "svg" and ext.lower() != ".svg":
+                out_path = base + ".svg"
+                outpath_var.set(out_path)
+
+            saved = gen.save(img, out_path)
+
+            # PNG preview
+            if fmt == "png":
+                from PIL import ImageTk  # lazy import
+                tk_img = ImageTk.PhotoImage(file=saved)
+                preview_lbl.configure(image=tk_img, text="")
+                preview_lbl.image = tk_img
+            else:
+                preview_lbl.configure(text="SVG saved. Open it in your browser/vector app for preview.", image="")
+                preview_lbl.image = None
+
+            messagebox.showinfo("Success", f"QR saved to:\n{saved}")
+        except Exception as e:
+            messagebox.showerror("Generation failed", str(e))
+
+    btnfrm = ttk.Frame(frm)
+    btnfrm.grid(row=5, column=0, columnspan=3, pady=10)
+    ttk.Button(btnfrm, text="Generate", command=generate).pack()
+
+    app.mainloop()
 
 
 # -------------------- CLI --------------------
@@ -125,8 +231,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--border", type=int, default=4, help="Quiet-zone border (modules).")
     p.add_argument("--svg-method", choices=["path", "basic", "fragment"], default="path")
     p.add_argument("--gui", action="store_true", help="Force GUI mode.")
-    # ✅ New: version flag
+    # New flags
     p.add_argument("--version", action="version", version="QR Tool v1.0.0")
+    p.add_argument("--quiet", action="store_true", help="Suppress console output")
     return p
 
 
@@ -152,7 +259,9 @@ def main():
 
     out = args.out or (os.path.join(os.getcwd(), f"qr_output.{args.format}"))
     saved = gen.save(obj, out)
-    print(f"Saved: {saved}")
+
+    if not args.quiet:
+        print(f"Saved: {saved}")
 
 
 if __name__ == "__main__":
