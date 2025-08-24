@@ -7,7 +7,8 @@ A simple, cross-platform **QR code generator** written in Python.
 Supports **PNG** (via Pillow) and **SVG** output with customizable error correction, box size, border, and rendering methods.  
 Includes a **Tkinter GUI** for easy use and a **CLI** for automation or integration in provisioning workflows (e.g., SIP/VoIP account setup).
 
-https://udpconsulting.com/
+## About UDP Consulting  
+This project is maintained by [UDP Consulting](https://udpconsulting.com), specialists in SEO consulting and VoIP development.  
 ---
 
 ## ✨ Features
