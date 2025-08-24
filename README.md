@@ -1,5 +1,5 @@
 # QR Code Generator
-https://udpconsulting.com/
+
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -7,6 +7,7 @@ A simple, cross-platform **QR code generator** written in Python.
 Supports **PNG** (via Pillow) and **SVG** output with customizable error correction, box size, border, and rendering methods.  
 Includes a **Tkinter GUI** for easy use and a **CLI** for automation or integration in provisioning workflows (e.g., SIP/VoIP account setup).
 
+https://udpconsulting.com/
 ---
 
 ## ✨ Features
